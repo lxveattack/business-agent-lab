@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expense Tracker</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+    h1 { font-size: 1.5rem; }
+    form { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; }
+    input, select, button { padding: .5rem; font-size: 1rem; }
+    input[name=description] { flex: 1 1 160px; }
+    input[name=amount] { width: 120px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #ddd; }
+    td.num, th.num { text-align: right; }
+    .del { background: none; border: none; color: #c00; cursor: pointer; }
+    .summary { margin-top: 1.5rem; }
+    .total { font-weight: bold; font-size: 1.1rem; }
+    .empty { color: #888; }
+  </style>
+</head>
+<body>
+  <h1>Expense Tracker</h1>
+
+  <form id="form">
+    <input name="date" type="date" required>
+    <input name="description" placeholder="Description" required>
+    <select name="category">
+      <option>Food</option>
+      <option>Transport</option>
+      <option>Office</option>
+      <option>Other</option>
+    </select>
+    <input name="amount" type="number" min="1" step="1" placeholder="Amount (₩)" required>
+    <button type="submit">Add</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Description</th><th>Category</th><th class="num">Amount</th><th></th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p id="empty" class="empty">No expenses yet.</p>
+
+  <div class="summary">
+    <h2>By category</h2>
+    <table><tbody id="byCategory"></tbody></table>
+    <p class="total">Total: <span id="total">₩0</span></p>
+  </div>
+
+  <script>
+    const KEY = 'expenses';
+    const won = n => '₩' + n.toLocaleString('ko-KR');
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+    }
+    function save(list) {
+      try { localStorage.setItem(KEY, JSON.stringify(list)); } catch {}
+    }
+
+    let expenses = load();
+
+    function render() {
+      const rows = document.getElementById('rows');
+      rows.innerHTML = '';
+      const sorted = [...expenses].sort((a, b) => b.date.localeCompare(a.date));
+      for (const e of sorted) {
+        const tr = document.createElement('tr');
+        for (const text of [e.date, e.description, e.category]) {
+          const td = document.createElement('td');
+          td.textContent = text;
+          tr.appendChild(td);
+        }
+        const amt = document.createElement('td');
+        amt.className = 'num';
+        amt.textContent = won(e.amount);
+        tr.appendChild(amt);
+        const del = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.className = 'del';
+        btn.textContent = '✕';
+        btn.title = 'Delete';
+        btn.onclick = () => {
+          expenses = expenses.filter(x => x.id !== e.id);
+          save(expenses);
+          render();
+        };
+        del.appendChild(btn);
+        tr.appendChild(del);
+        rows.appendChild(tr);
+      }
+      document.getElementById('empty').hidden = expenses.length > 0;
+
+      const totals = {};
+      for (const e of expenses) totals[e.category] = (totals[e.category] || 0) + e.amount;
+      const byCat = document.getElementById('byCategory');
+      byCat.innerHTML = '';
+      for (const [cat, sum] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td></td><td class="num"></td>';
+        tr.children[0].textContent = cat;
+        tr.children[1].textContent = won(sum);
+        byCat.appendChild(tr);
+      }
+      document.getElementById('total').textContent =
+        won(expenses.reduce((s, e) => s + e.amount, 0));
+    }
+
+    const form = document.getElementById('form');
+    const now = new Date();
+    form.date.value = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    form.addEventListener('submit', ev => {
+      ev.preventDefault();
+      expenses.push({
+        id: Date.now(),
+        date: form.date.value,
+        description: form.description.value.trim(),
+        category: form.category.value,
+        amount: Math.round(Number(form.amount.value)),
+      });
+      save(expenses);
+      form.description.value = '';
+      form.amount.value = '';
+      form.description.focus();
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
