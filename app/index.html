@@ -28,8 +28,10 @@
     <input name="description" placeholder="Description" required>
     <select name="category">
       <option>Food</option>
+      <option>Cafe</option>
       <option>Transport</option>
-      <option>Office</option>
+      <option>School</option>
+      <option>Shopping</option>
       <option>Other</option>
     </select>
     <input name="amount" type="number" min="1" step="1" placeholder="Amount (₩)" required>
@@ -45,6 +47,8 @@
   <p id="empty" class="empty">No expenses yet.</p>
 
   <div class="summary">
+    <h2>By day</h2>
+    <table><tbody id="byDay"></tbody></table>
     <h2>By category</h2>
     <table><tbody id="byCategory"></tbody></table>
     <p class="total">Total: <span id="total">₩0</span></p>
@@ -94,17 +98,24 @@
       }
       document.getElementById('empty').hidden = expenses.length > 0;
 
-      const totals = {};
-      for (const e of expenses) totals[e.category] = (totals[e.category] || 0) + e.amount;
-      const byCat = document.getElementById('byCategory');
-      byCat.innerHTML = '';
-      for (const [cat, sum] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td></td><td class="num"></td>';
-        tr.children[0].textContent = cat;
-        tr.children[1].textContent = won(sum);
-        byCat.appendChild(tr);
-      }
+      const sumBy = field => {
+        const totals = {};
+        for (const e of expenses) totals[e[field]] = (totals[e[field]] || 0) + e.amount;
+        return Object.entries(totals);
+      };
+      const fillTotals = (id, entries) => {
+        const body = document.getElementById(id);
+        body.innerHTML = '';
+        for (const [label, sum] of entries) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td></td><td class="num"></td>';
+          tr.children[0].textContent = label;
+          tr.children[1].textContent = won(sum);
+          body.appendChild(tr);
+        }
+      };
+      fillTotals('byDay', sumBy('date').sort((a, b) => b[0].localeCompare(a[0])));
+      fillTotals('byCategory', sumBy('category').sort((a, b) => b[1] - a[1]));
       document.getElementById('total').textContent =
         won(expenses.reduce((s, e) => s + e.amount, 0));
     }
@@ -115,7 +126,7 @@
     form.addEventListener('submit', ev => {
       ev.preventDefault();
       expenses.push({
-        id: Date.now(),
+        id: crypto.randomUUID(),
         date: form.date.value,
         description: form.description.value.trim(),
         category: form.category.value,
